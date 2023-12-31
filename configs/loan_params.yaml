@@ -1,0 +1,45 @@
+type: loan
+# local clients
+lr: 0.001
+batch_size: 800
+test_batch_size: 800
+internal_epochs: 1 # local epochs
+
+
+# server
+epochs: 100
+param_clip_thres: 5
+sigma_param: 0.01
+# aggration options: 'mean_param' or  'geom_median'
+aggregation_methods: 'geom_median'
+num_models: 20
+
+# adv setup
+is_poison: true
+poisoning_per_batch: 20
+adversary_list: [CT, MN, MI, MD] # [CT, MN, MI,MD]
+#adversary_list: [CT, MN,MI,MD,MS] # [CT,MO,TN]
+# loan_CT.csv train 28628 test 7157
+# loan_MO.csv train 28867 test 7217 
+# loan_TN.csv train 28386 test 7097
+#这个是我自己加上的！综合数据集进行测试的时候，后门数据占的比例
+poison_frac: 0.2
+
+poison_epochs: [6] 
+scale_factor: 10 
+
+# label: ['Current', 'Fully Paid', 'Late (31-120 days)', 'In Grace Period', 'Charged Off', 'Late (16-30 days)', 'Default', 'Does not meet the credit policy. Status:Fully Paid', 'Does not meet the credit policy. Status:Charged Off']
+poison_label_swap: 7
+
+poison_delta: 40
+#poison_delta: 0.1
+poison_trigger_names: ['num_tl_120dpd_2m', 'num_tl_90g_dpd_24m']
+
+
+save_model: true
+save_on_epochs: [15,20,40,60,80,100,120,140,150]
+
+resumed_model: true
+resumed_model_name: model_loan_Oct.05_23.25.13/model_last.pt.tar.epoch_90
+resumed_model_path: model_loan_Oct.05_23.25.13
+
