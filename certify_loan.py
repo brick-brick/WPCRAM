@@ -1,10 +1,11 @@
 import matplotlib
-
+import logging
+logger = logging.getLogger("logger")
 # matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
 import os
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "3"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 import numpy as np
 
 
@@ -12,7 +13,8 @@ from typing import *
 import pandas as pd
 import seaborn as sns
 import math
-
+import logging
+logger = logging.getLogger("logger")
 sns.set()
 
 
@@ -30,11 +32,30 @@ class Accuracy(object):
 class CertifiedRate(Accuracy):
     def __init__(self, smoothed_fname,agg_weight=None,M=0,alpha= 0):
         cert_bound, cert_bound_exp, is_acc = certify(smoothed_fname,agg_weight=agg_weight,M=M,alpha= alpha)
+        print('Rr:')
+        print(cert_bound)
         self.cert_bound = cert_bound
         self.cert_bound_exp = cert_bound_exp
         self.is_acc = is_acc
 
     def at_radii(self, radii: np.ndarray) -> np.ndarray:
+        print(f'certified_rate:{np.array([self.at_radius(radius) for radius in radii])},shape:{np.array([self.at_radius(radius) for radius in radii]).shape}')
+        count = 0
+        temp = 0
+        for i in np.array([self.at_radius(radius) for radius in radii]):
+            if i!= 0:
+                count = count + 1
+                temp = temp + i
+
+        print(f'certified_rate_mean:{np.array([self.at_radius(radius) for radius in radii]).mean()}')
+        print(f'rate_mean:{temp/count}')
+        # indx = -1
+        # for i in range(len(radii)):
+        #     if radii[i] <= 0:
+        #         indx = i - 1
+        #         break
+        print(f'radius[0] certified_rate:{self.at_radius(radii[0])}, radius[] rate:{self.at_radius(math.floor(self.cert_bound[0]))}')
+        # print(f'radius[0] certified_rate:{self.at_radius(radii[0])}, radius[] rate:{self.at_radius(radii[376.4652252])}')
         return np.array([self.at_radius(radius) for radius in radii])
 
     def at_radius(self, radius: float):
@@ -48,6 +69,20 @@ class CertifiedAcc(Accuracy):
         self.is_acc = is_acc
 
     def at_radii(self, radii: np.ndarray) -> np.ndarray:
+        print(f'certified_acc:{np.array([self.at_radius(radius) for radius in radii])}, shape:{np.array([self.at_radius(radius) for radius in radii]).shape}')
+        print(f'certified_acc_mean:{np.array([self.at_radius(radius) for radius in radii]).mean()}')
+        count = 0
+        temp = 0
+        for i in np.array([self.at_radius(radius) for radius in radii]):
+            if i!= 0:
+                count = count + 1
+                temp = temp + i
+
+        print(f'certified_acc_mean:{np.array([self.at_radius(radius) for radius in radii]).mean()}')
+        print(f'acc_mean:{temp/count}')
+
+
+        print(f'radius[0] certified_acc:{self.at_radius(radii[0])}, radius[] acc:{self.at_radius(math.floor(self.cert_bound[0]))}')
         return np.array([self.at_radius(radius) for radius in radii])
 
     def at_radius(self, radius: float):
@@ -65,7 +100,7 @@ class Line(object):
 def plot_certified_accuracy(outfile: str, title: str, max_radius: float,
                             lines: List[Line], radius_step: float = 0.001) -> None:
     radii = np.arange(0, max_radius + radius_step, radius_step)
-    main.logger.info(f"RAD:{max_radius}")
+    # main.logger.info(f"RAD:{max_radius}")
     plt.figure()
     for line in lines:
         plt.plot(radii * line.scale_x, line.quantity.at_radii(radii), line.plot_fmt)
@@ -140,6 +175,7 @@ def cal_prob_bound(pa, pb, sigma_test,epoch, training_params,agg_weight=None):
     contract  *= (2*norm.cdf(rho_T*1.0/sigma_test)-1) # round T
     denominator= denominator * contract
     delta_pat  = math.sqrt(fraction/  denominator)
+    logger.info(f'N:{N}, R:{R}, certified_R:{delta_pat}')
 
     return delta_pat 
 
@@ -167,6 +203,7 @@ def certify(smoothed_fname,agg_weight=None, M=0, alpha= 0):
     num_samples= 10000
     df = pd.read_csv(data_file_path, delimiter="\t")
     print(len(np.array(df["pa_exp"])))
+    # pa,pb是每一条数据的预测标签概率第一与第二大的上下界，is_acc表示预测是否正确
     pa_exp = np.array(df["pa_exp"])[:num_samples]
     pb_exp = np.array(df["pb_exp"])[:num_samples]
     is_acc = np.array(df["is_acc"])[:num_samples]
@@ -305,13 +342,126 @@ if __name__ == "__main__":
     #     Line(CertifiedAcc("saved_models/model_loan_Feb.04_04.49.52/model_last.pt.tar.epoch_100",agg_weight=[0.0086, 0.0094]), " R = 2, RFA"),
     #     Line(CertifiedAcc("saved_models/model_loan_Feb.04_04.50.09/model_last.pt.tar.epoch_100",agg_weight=[2.3699e-03, 2.5833e-03, 2.5176e-03]), " R = 3, RFA"),
     # ])
+    # plot_certified_rate(
+    # "plots/loan/vary_agg_tadv6_T100_cer_rate", "vary R ($t_{adv}=6$, T=100, $\gamma=10$)", 1000, [
+    #     Line(CertifiedRate("saved_models/model_loan_May.06_18.20.10/model_last.pt.tar.epoch_100",agg_weight=[0.01238, 0.01568, 0.04513, 0.03619]), " R = 4, CRFL"),
+    #     Line(CertifiedRate("saved_models/model_loan_Feb.06_09.16.35/model_last.pt.tar.epoch_100",agg_weight=[0.00004591, 0.00003566, 0.00001527, 0.00001995]), " R = 4, MDCR"),
+    # ])
     plot_certified_rate(
-    "plots/loan/vary_agg_tadv6_T100_cer_rate", "vary R ($t_{adv}=6$, T=100, $\gamma=10$)", 1000, [
-        Line(CertifiedRate("saved_models/model_loan_May.06_18.20.10/model_last.pt.tar.epoch_100",agg_weight=[0.01238, 0.01568, 0.04513, 0.03619]), " R = 4, CRFL"),
-        Line(CertifiedRate("saved_models/model_loan_Feb.06_09.16.35/model_last.pt.tar.epoch_100",agg_weight=[0.00004591, 0.00003566, 0.00001527, 0.00001995]), " R = 4, MDCR"),
+    "plots/loan/vary_agg_tadv6_T100_cer_rate", "vary R ($t_{adv}=6$, T=800, $\gamma=10$)", 1000, [
+        # Line(CertifiedRate("saved_models/model_loan_Oct.26_10.26.45/model_last.pt.tar.epoch_40",agg_weight=[1.0743e-05, 1.2486e-05, 3.0092e-05, 2.8951e-05]), " R = 4, MDCR"),
+        Line(CertifiedRate("saved_models/model_loan_Oct.25_20.26.59/model_last.pt.tar.epoch_100",agg_weight=[1.0027e-06, 1.2876e-06, 3.1768e-06, 2.6025e-06]), " R = 4, MDCR"),
+        # Line(CertifiedRate("saved_models/model_loan_Dec.13_20.44.43/model_last.pt.tar.epoch_100",agg_weight=[1.4281e-05, 1.8850e-05, 4.7604e-05, 3.7737e-05]), " R = 4, MDCR"),
+        # Line(CertifiedRate("saved_models/model_loan_Dec.12_21.22.53/model_last.pt.tar.epoch_100",agg_weight=[1.0743e-05, 1.2486e-05, 3.0092e-05, 2.8951e-05]), " R = 4, MDCR"),
+        # Line(CertifiedRate("saved_models/model_loan_Dec.12_13.33.16/model_last.pt.tar.epoch_100",agg_weight=[1.0743e-05, 1.2486e-05, 3.0092e-05, 2.8951e-05]), " R = 4, MDCR"),
+        # Line(CertifiedRate("saved_models/model_loan_Dec.11_21.33.44/model_last.pt.tar.epoch_100",agg_weight=[1.0743e-05, 1.2486e-05, 3.0092e-05, 2.8951e-05]), " R = 4, MDCR"),
+        # Line(CertifiedRate("saved_models/model_loan_Dec.02_16.19.10/model_last.pt.tar.epoch_100",agg_weight=[9.6407e-06, 1.1889e-05, 2.9445e-05, 2.5570e-05]), " R = 4, MDCR"),
+        # Line(CertifiedRate("saved_models/model_loan_Dec.02_09.37.49/model_last.pt.tar.epoch_100",agg_weight=[9.6407e-06, 1.1889e-05, 2.9445e-05, 2.5570e-05]), " R = 4, MDCR"),
+        # Line(CertifiedRate("saved_models/model_loan_Dec.11_15.36.23/model_last.pt.tar.epoch_100",agg_weight=[1.0743e-05, 1.2486e-05, 3.0092e-05, 2.8951e-05]), " R = 4, MDCR"),
+        # Line(CertifiedRate("saved_models/model_loan_Dec.10_16.53.31/model_last.pt.tar.epoch_100",agg_weight=[1.0743e-05, 1.2486e-05, 3.0092e-05, 2.8951e-05]), " R = 4, MDCR"),
+        # Line(CertifiedRate("saved_models/model_loan_Dec.09_12.34.00/model_last.pt.tar.epoch_100",agg_weight=[1.0743e-05, 1.2486e-05, 3.0092e-05, 2.8951e-05]), " R = 4, MDCR"),
+        # Line(CertifiedRate("saved_models/model_loan_Dec.08_22.31.14/model_last.pt.tar.epoch_100",agg_weight=[1.0743e-05, 1.2486e-05, 3.0092e-05, 2.8951e-05]), " R = 4, MDCR"),
+        # Line(CertifiedRate("saved_models/model_loan_Dec.07_09.24.45/model_last.pt.tar.epoch_100",agg_weight=[1.0743e-05, 1.2486e-05, 3.0092e-05, 2.8951e-05]), " R = 4, MDCR"),
+        # Line(CertifiedRate("saved_models/model_loan_Dec.06_17.45.26/model_last.pt.tar.epoch_100",agg_weight=[1.0743e-05, 1.2486e-05, 3.0092e-05, 2.8951e-05]), " R = 4, MDCR"),
+        # Line(CertifiedRate("saved_models/model_loan_Dec.05_19.42.47/model_last.pt.tar.epoch_100",agg_weight=[9.6407e-06, 1.1889e-05, 2.9445e-05, 2.5570e-05]), " R = 4, MDCR"),
+        # Line(CertifiedRate("saved_models/model_loan_Dec.04_21.42.23/model_last.pt.tar.epoch_100",agg_weight=[9.6407e-06, 1.1889e-05, 2.9445e-05, 2.5570e-05]), " R = 4, MDCR"),
+        # Line(CertifiedRate("saved_models/model_loan_Dec.01_22.07.01/model_last.pt.tar.epoch_100",agg_weight=[9.6407e-06, 1.1889e-05, 2.9445e-05, 2.5570e-05]), " R = 4, MDCR"),
+        # Line(CertifiedRate("saved_models/model_loan_Dec.01_15.59.47/model_last.pt.tar.epoch_100",agg_weight=[9.6407e-06, 1.1889e-05, 2.9445e-05, 2.5570e-05]), " R = 4, MDCR"),
+        # Line(CertifiedRate("saved_models/model_loan_Dec.01_09.48.18/model_last.pt.tar.epoch_100",agg_weight=[9.6408e-06, 1.1889e-05, 2.9445e-05, 2.5570e-05]), " R = 4, MDCR"),
+        # Line(CertifiedRate("saved_models/model_loan_Dec.01_09.48.18/model_last.pt.tar.epoch_100",agg_weight=[9.6408e-06, 1.1889e-05, 2.9445e-05, 2.5570e-05]), " R = 4, MDCR"),
+        # Line(CertifiedRate("saved_models/model_loan_Oct.25_20.26.59/model_last.pt.tar.epoch_100",agg_weight=[1.0155e-06, 1.1213e-06, 3.0843e-06, 2.5144e-06]), " R = 4, MDCR"),
+        # Line(CertifiedRate("saved_models/model_loan_Nov.30_23.36.10/model_last.pt.tar.epoch_100",agg_weight=[1.0155e-06, 1.1213e-06, 3.0843e-06, 2.5144e-06]), " R = 4, MDCR"),
+        # Line(CertifiedRate("saved_models/model_loan_Nov.30_16.59.21/model_last.pt.tar.epoch_100",agg_weight=[1.8008e-06, 1.9700e-06, 5.2551e-06, 4.4257e-06]), " R = 4, MDCR"),
+        # Line(CertifiedRate("saved_models/model_loan_Nov.30_10.05.53/model_last.pt.tar.epoch_100",agg_weight=[3.6387e-06, 3.9805e-06, 1.0204e-05, 9.0297e-06]), " R = 4, MDCR"),
+        # Line(CertifiedRate("saved_models/model_loan_Nov.29_19.59.12/model_last.pt.tar.epoch_100",agg_weight=[7.8739e-06, 8.8277e-06, 2.1621e-05, 2.0654e-05]), " R = 4, MDCR"),
+        # Line(CertifiedRate("saved_models/model_loan_Nov.28_21.07.45/model_last.pt.tar.epoch_100",agg_weight=[1.0272e-05, 1.2332e-05, 3.0118e-05, 2.7374e-05]), " R = 4, MDCR"),
+        # Line(CertifiedRate("saved_models/model_loan_Nov.27_22.29.36/model_last.pt.tar.epoch_140",agg_weight=[6.7846e-06, 6.9319e-06, 1.6027e-05, 1.6193e-05]), " R = 4, MDCR"),
+        # Line(CertifiedRate("saved_models/model_loan_Nov.27_10.51.28/model_last.pt.tar.epoch_120",agg_weight=[1.5002e-05, 1.7055e-05, 3.9458e-05, 3.7011e-05]), " R = 4, MDCR"),
+        # Line(CertifiedRate("saved_models/model_loan_Oct.21_10.09.12/model_last.pt.tar.epoch_100",agg_weight=[1.0528e-04, 1.2101e-04, 2.2673e-04, 2.0182e-04]), " R = 4, MDCR"),
+        # Line(CertifiedRate("saved_models/model_loan_Oct.19_21.46.26/model_last.pt.tar.epoch_100",agg_weight=[9.2084e-06, 1.0444e-05, 1.7731e-05, 1.6410e-05, 2.8860e-06]), " R = 4, MDCR"),
+        # Line(CertifiedRate("saved_models/model_loan_Oct.23_16.41.25/model_last.pt.tar.epoch_100",agg_weight=[1.0010e-06, 1.2852e-06, 3.1710e-06]), " R = 4, MDCR"),
+        # Line(CertifiedRate("saved_models/model_loan_Oct.25_20.26.59/model_last.pt.tar.epoch_100",agg_weight=[1.0027e-06, 1.2876e-06, 3.1768e-06, 2.6025e-06]), " R = 4, MDCR"),
+        # Line(CertifiedRate("saved_models/model_loan_Oct.23_20.31.44/model_last.pt.tar.epoch_60",agg_weight=[0.0000042880, 0.0000052076, 0.000013619, 0.000011356]), " R = 4, MDCR"),
+        # Line(CertifiedRate("saved_models/model_loan_Oct.23_20.31.44/model_last.pt.tar.epoch_60",agg_weight=[0.0000042880, 0.0000052076, 0.000013619, 0.000011356]), " R = 4, MDCR"),
+        # Line(CertifiedRate("saved_models/model_loan_Oct.24_22.30.37/model_last.pt.tar.epoch_40",agg_weight=[6.8286e-07, 8.5386e-07, 2.4469e-06, 1.7947e-06]), " R = 4, MDCR"),
+        # Line(CertifiedRate("saved_models/model_loan_Oct.23_16.41.25/model_last.pt.tar.epoch_100",agg_weight=[0.000001001, 0.0000012852, 0.000003171, 0.0000025974]), " R = 4, MDCR"),
+        # Line(CertifiedRate("saved_models/model_loan_Oct.17_22.14.24/model_last.pt.tar.epoch_100",agg_weight=[0.0000058971, 0.0000076193, 0.000021128, 0.000014881]), " R = 4, MDCR"),
+        # Line(CertifiedRate("saved_models/model_loan_Nov.24_15.36.07/model_last.pt.tar.epoch_100",agg_weight=[9.6644e-06, 1.1123e-05, 2.6658e-05, 2.3946e-05, 2.2730e-06, 1.8931e-05,
+        # Line(CertifiedRate("saved_models/model_loan_Nov.24_15.36.07/model_last.pt.tar.epoch_100",agg_weight=[1.0758e-05, 1.2443e-05, 2.9469e-05, 2.7885e-05, 2.5354e-06, 2.1048e-05,
+        # Line(CertifiedRate("saved_models/model_loan_Nov.26_21.45.22/model_last.pt.tar.epoch_100",agg_weight=[1.2585e-05, 1.4720e-05, 3.5689e-05, 3.3686e-05, 2.9692e-06, 2.5363e-05,
+        # 1.5197e-05, 3.3589e-06, 2.4033e-06]), " R = 4, MDCR"),
+        # 1.2176e-05, 2.8453e-06]), " R = 4, MDCR"),
+        # Line(CertifiedRate("saved_models/model_loan_Nov.22_23.03.49/model_last.pt.tar.epoch_100",agg_weight=[1.0045e-05, 1.1727e-05, 2.8316e-05, 2.7760e-05, 2.3748e-06, 2.0122e-05]), " R = 4, MDCR"),
+        # Line(CertifiedRate("saved_models/model_loan_Nov.22_15.35.02/model_last.pt.tar.epoch_100",agg_weight=[1.1437e-05, 1.4514e-05, 3.6322e-05, 2.9649e-05, 2.6262e-06]), " R = 4, MDCR"),
+        # Line(CertifiedRate("saved_models/model_loan_Nov.20_20.58.13/model_last.pt.tar.epoch_100",agg_weight=[3.9778e-06, 4.9433e-06, 1.3450e-05, 1.1833e-05]), " R = 4, MDCR"),
+        # Line(CertifiedRate("saved_models/model_loan_Nov.20_10.26.02/model_last.pt.tar.epoch_100",agg_weight=[1.2867e-06, 1.4446e-06, 1.0463e-06, 1.3084e-06]), " R = 4, MDCR"),
+        # Line(CertifiedRate("saved_models/model_loan_Oct.22_23.55.06/model_last.pt.tar.epoch_80",agg_weight=[0.000031092, 0.000041629, 0.00010529, 0.000085331]), " R = 4, MDCR"),
+        # Line(CertifiedRate("saved_models/model_loan_Oct.22_10.16.16/model_last.pt.tar.epoch_100",agg_weight=[0.000010846]), " R = 1, MDCR"),
+        # Line(CertifiedRate("saved_models/model_loan_Oct.21_23.23.29/model_last.pt.tar.epoch_100",agg_weight=[0.0000092709, 0.000010628]), " R = 3, MDCR"),
+        # Line(CertifiedRate("saved_models/model_loan_Oct.21_10.09.12/model_last.pt.tar.epoch_100",agg_weight=[0.0000039778, 0.0000049433, 0.00001345, 0.000011833]), " R = 4, MDCR"),
+        # Line(CertifiedRate("saved_models/model_loan_Oct.20_22.11.35/model_last.pt.tar.epoch_100",agg_weight=[0.00010528, 0.00012101, 0.0002673, 0.0002018]), " R = 4, MDCR"),
+        # Line(CertifiedRate("saved_models/model_loan_Oct.19_21.46.26/model_last.pt.tar.epoch_100",agg_weight=[0.0000092084, 0.000010444, 0.000017731, 0.00001641, 0.000002886]), " R = 4, MDCR"),
+        # Line(CertifiedRate("saved_models/model_loan_Oct.19_08.48.38/model_last.pt.tar.epoch_100",agg_weight=[0.0000094896, 0.00010979, 0.000018691, 0.00001607]), " R = 4, MDCR"),
+        # Line(CertifiedRate("saved_models/model_loan_Aug.22_10.48.13/model_last.pt.tar.epoch_100",agg_weight=[0.0001914, 0.0002356, 0.0003834, 0.9025]), " R = 4, MDCR"),
+        # Line(CertifiedRate("saved_models/model_loan_Feb.04_19.09.27/model_last.pt.tar.epoch_100",agg_weight=[0.00013025, 0.00018528, 0.00023402, 0.00033203]), " R = 3, MDCR"),
     ])
-
-
+    plot_certified_accuracy(
+        "plots/loan/vary_gamma_tadv6_T100_cer_acc", "vary $\gamma$ ($t_{adv}=6$, T=100, R=4)", 1000, [
+            # Line(CertifiedAcc("saved_models/model_loan_Oct.21_10.09.12/model_last.pt.tar.epoch_100",agg_weight=[0.0000039778, 0.0000049433, 0.00001345, 0.000011833]), " R = 4, MDCR"),
+            Line(CertifiedAcc("saved_models/model_loan_Oct.25_20.26.59/model_last.pt.tar.epoch_100",agg_weight=[1.0027e-06, 1.2876e-06, 3.1768e-06, 2.6025e-06]), " R = 4, MDCR"),
+            # Line(CertifiedAcc("saved_models/model_loan_Dec.13_20.44.43/model_last.pt.tar.epoch_100",agg_weight=[1.4281e-05, 1.8850e-05, 4.7604e-05, 3.7737e-05]), " R = 4, MDCR"),
+            # Line(CertifiedAcc("saved_models/model_loan_Dec.13_20.44.43/model_last.pt.tar.epoch_100",agg_weight=[1.4281e-05, 1.8850e-05, 4.7604e-05, 3.7737e-05]), " R = 4, MDCR"),
+            # Line(CertifiedAcc("saved_models/model_loan_Dec.12_21.22.53/model_last.pt.tar.epoch_100",agg_weight=[1.0743e-05, 1.2486e-05, 3.0092e-05, 2.8951e-05]), " R = 4, MDCR"),
+            # Line(CertifiedAcc("saved_models/model_loan_Dec.12_13.33.16/model_last.pt.tar.epoch_100",agg_weight=[1.0743e-05, 1.2486e-05, 3.0092e-05, 2.8951e-05]), " R = 4, MDCR"),
+            # Line(CertifiedAcc("saved_models/model_loan_Dec.11_21.33.44/model_last.pt.tar.epoch_100",agg_weight=[1.0743e-05, 1.2486e-05, 3.0092e-05, 2.8951e-05]), " R = 4, MDCR"),
+            # Line(CertifiedAcc("saved_models/model_loan_Dec.02_16.19.10/model_last.pt.tar.epoch_100",agg_weight=[9.6407e-06, 1.1889e-05, 2.9445e-05, 2.5570e-05]), " R = 4, MDCR"),
+            # Line(CertifiedAcc("saved_models/model_loan_Dec.02_09.37.49/model_last.pt.tar.epoch_100",agg_weight=[9.6407e-06, 1.1889e-05, 2.9445e-05, 2.5570e-05]), " R = 4, MDCR"),
+            # Line(CertifiedAcc("saved_models/model_loan_Dec.11_15.36.23/model_last.pt.tar.epoch_100",agg_weight=[1.0743e-05, 1.2486e-05, 3.0092e-05, 2.8951e-05]), " R = 4, MDCR"),
+            # Line(CertifiedAcc("saved_models/model_loan_Dec.10_16.53.31/model_last.pt.tar.epoch_100",agg_weight=[1.0743e-05, 1.2486e-05, 3.0092e-05, 2.8951e-05]), " R = 4, MDCR"),
+            # Line(CertifiedAcc("saved_models/model_loan_Dec.09_12.34.00/model_last.pt.tar.epoch_100",agg_weight=[1.0743e-05, 1.2486e-05, 3.0092e-05, 2.8951e-05]), " R = 4, MDCR"),
+            # Line(CertifiedAcc("saved_models/model_loan_Dec.08_22.31.14/model_last.pt.tar.epoch_100",agg_weight=[1.0743e-05, 1.2486e-05, 3.0092e-05, 2.8951e-05]), " R = 4, MDCR"),
+            # Line(CertifiedAcc("saved_models/model_loan_Dec.07_09.24.45/model_last.pt.tar.epoch_100",agg_weight=[1.0743e-05, 1.2486e-05, 3.0092e-05, 2.8951e-05]), " R = 4, MDCR"),
+            # Line(CertifiedAcc("saved_models/model_loan_Dec.06_17.45.26/model_last.pt.tar.epoch_100",agg_weight=[1.0743e-05, 1.2486e-05, 3.0092e-05, 2.8951e-05]), " R = 4, MDCR"),
+            # Line(CertifiedAcc("saved_models/model_loan_Dec.05_19.42.47/model_last.pt.tar.epoch_100",agg_weight=[9.6407e-06, 1.1889e-05, 2.9445e-05, 2.5570e-05]), " R = 4, MDCR"),
+            # Line(CertifiedAcc("saved_models/model_loan_Dec.04_21.42.23/model_last.pt.tar.epoch_100",agg_weight=[9.6407e-06, 1.1889e-05, 2.9445e-05, 2.5570e-05]), " R = 4, MDCR"),
+            # Line(CertifiedAcc("saved_models/model_loan_Dec.01_22.07.01/model_last.pt.tar.epoch_100",agg_weight=[9.6407e-06, 1.1889e-05, 2.9445e-05, 2.5570e-05]), " R = 4, MDCR"),
+            # Line(CertifiedAcc("saved_models/model_loan_Dec.01_15.59.47/model_last.pt.tar.epoch_100",agg_weight=[9.6407e-06, 1.1889e-05, 2.9445e-05, 2.5570e-05]), " R = 4, MDCR"),
+            # Line(CertifiedAcc("saved_models/model_loan_Dec.01_09.48.18/model_last.pt.tar.epoch_100",agg_weight=[9.6408e-06, 1.1889e-05, 2.9445e-05, 2.5570e-05]), " R = 4, MDCR"),
+            # Line(CertifiedAcc("saved_models/model_loan_Dec.01_09.48.18/model_last.pt.tar.epoch_100",agg_weight=[9.6408e-06, 1.1889e-05, 2.9445e-05, 2.5570e-05]), " R = 4, MDCR"),
+            # Line(CertifiedAcc("saved_models/model_loan_Oct.25_20.26.59/model_last.pt.tar.epoch_100",agg_weight=[1.0155e-06, 1.1213e-06, 3.0843e-06, 2.5144e-06]), " R = 4, MDCR"),
+            # Line(CertifiedAcc("saved_models/model_loan_Nov.30_23.36.10/model_last.pt.tar.epoch_100",agg_weight=[1.0155e-06, 1.1213e-06, 3.0843e-06, 2.5144e-06]), " R = 4, MDCR"),
+            # Line(CertifiedAcc("saved_models/model_loan_Nov.30_16.59.21/model_last.pt.tar.epoch_100",agg_weight=[1.8008e-06, 1.9700e-06, 5.2551e-06, 4.4257e-06]), " R = 4, MDCR"),
+            # Line(CertifiedAcc("saved_models/model_loan_Nov.30_10.05.53/model_last.pt.tar.epoch_100",agg_weight=[3.6387e-06, 3.9805e-06, 1.0204e-05, 9.0297e-06]), " R = 4, MDCR"),
+            # Line(CertifiedAcc("saved_models/model_loan_Nov.29_19.59.12/model_last.pt.tar.epoch_100",agg_weight=[7.8739e-06, 8.8277e-06, 2.1621e-05, 2.0654e-05]), " R = 4, MDCR"),
+            # Line(CertifiedAcc("saved_models/model_loan_Nov.28_21.07.45/model_last.pt.tar.epoch_100",agg_weight=[1.0272e-05, 1.2332e-05, 3.0118e-05, 2.7374e-05]), " R = 4, MDCR"),
+            # Line(CertifiedAcc("saved_models/model_loan_Nov.27_22.29.36/model_last.pt.tar.epoch_140",agg_weight=[6.7846e-06, 6.9319e-06, 1.6027e-05, 1.6193e-05]), " R = 4, MDCR"),
+            # Line(CertifiedAcc("saved_models/model_loan_Nov.27_10.51.28/model_last.pt.tar.epoch_120",agg_weight=[1.5002e-05, 1.7055e-05, 3.9458e-05, 3.7011e-05]), " R = 4, MDCR"),
+            # Line(CertifiedAcc("saved_models/model_loan_Oct.20_22.11.35/model_last.pt.tar.epoch_100",agg_weight=[1.0528e-04, 1.2101e-04, 2.2673e-04, 2.0182e-04]), " R = 4, MDCR"),
+            # Line(CertifiedAcc("saved_models/model_loan_Nov.23_16.27.28/model_last.pt.tar.epoch_100",agg_weight=[9.6644e-06, 1.1123e-05, 2.6658e-05, 2.3946e-05, 2.2730e-06, 1.8931e-05,
+            # Line(CertifiedAcc("saved_models/model_loan_Nov.24_15.36.07/model_last.pt.tar.epoch_100",agg_weight=[1.0758e-05, 1.2443e-05, 2.9469e-05, 2.7885e-05, 2.5354e-06, 2.1048e-05,
+        # 1.2176e-05, 2.8453e-06]), " R = 4, MDCR"),
+        #     Line(CertifiedAcc("saved_models/model_loan_Nov.26_21.45.22/model_last.pt.tar.epoch_100",agg_weight=[1.2585e-05, 1.4720e-05, 3.5689e-05, 3.3686e-05, 2.9692e-06, 2.5363e-05,
+        # 1.5197e-05, 3.3589e-06, 2.4033e-06]), " R = 4, MDCR"),
+        # 1.1431e-05]), " R = 4, MDCR"),
+            # Line(CertifiedAcc("saved_models/model_loan_Nov.22_23.03.49/model_last.pt.tar.epoch_100",agg_weight=[1.0045e-05, 1.1727e-05, 2.8316e-05, 2.7760e-05, 2.3748e-06, 2.0122e-05]), " R = 4, MDCR"),
+            # Line(CertifiedAcc("saved_models/model_loan_Nov.22_15.35.02/model_last.pt.tar.epoch_100",agg_weight=[1.1437e-05, 1.4514e-05, 3.6322e-05, 2.9649e-05, 2.6262e-06]), " R = 4, MDCR"),
+            # Line(CertifiedAcc("saved_models/model_loan_Nov.20_20.58.13/model_last.pt.tar.epoch_100",agg_weight=[3.9778e-06, 4.9433e-06, 1.3450e-05, 1.1833e-05]), " R = 4, MDCR"),
+            # Line(CertifiedAcc("saved_models/model_loan_Nov.20_10.26.02/model_last.pt.tar.epoch_100",agg_weight=[1.2867e-06, 1.4446e-06, 1.0463e-06, 1.3084e-06]), " R = 4, MDCR"),
+            # Line(CertifiedAcc("saved_models/model_loan_Oct.22_23.55.06/model_last.pt.tar.epoch_80",agg_weight=[0.000031092, 0.000041629, 0.00010529, 0.000085331]), " R = 4, MDCR"),
+            # Line(CertifiedAcc("saved_models/model_loan_Oct.19_21.46.26/model_last.pt.tar.epoch_100",agg_weight=[9.2084e-06, 1.0444e-05, 1.7731e-05, 1.6410e-05, 2.8860e-06]), " R = 4, MDCR"),
+            # Line(CertifiedAcc("saved_models/model_loan_Oct.24_22.30.37/model_last.pt.tar.epoch_40",agg_weight=[6.8286e-07, 8.5386e-07, 2.4469e-06, 1.7947e-06]), " R = 4, MDCR"),
+            # Line(CertifiedAcc("saved_models/model_loan_Oct.23_16.41.25/model_last.pt.tar.epoch_100",agg_weight=[1.0010e-06, 1.2852e-06, 3.1710e-06]), " R = 4, MDCR"),
+            # Line(CertifiedAcc("saved_models/model_loan_Oct.25_20.26.59/model_last.pt.tar.epoch_100",agg_weight=[1.0027e-06, 1.2876e-06, 3.1768e-06, 2.6025e-06]), " R = 4, MDCR"),
+            # Line(CertifiedAcc("saved_models/model_loan_Oct.19_08.48.38/model_last.pt.tar.epoch_100",agg_weight=[0.0000094896, 0.00010979, 0.000018691, 0.00001607]), " R = 4, MDCR"),
+            # Line(CertifiedAcc("saved_models/model_loan_Oct.19_08.48.38/model_last.pt.tar.epoch_100",agg_weight=[0.0000094896, 0.00010979, 0.000018691, 0.00001607]), " R = 4, MDCR"),
+            # Line(CertifiedAcc("saved_models/model_loan_Oct.21_23.23.29/model_last.pt.tar.epoch_100",agg_weight=[0.0000092709, 0.000010628]), " R = 4, MDCR"),
+            # Line(CertifiedAcc("saved_models/model_loan_Oct.22_10.16.16/model_last.pt.tar.epoch_100",agg_weight=[0.000010846]), " R = 4, MDCR"),
+            # Line(CertifiedAcc("saved_models/model_loan_Oct.19_21.46.26/model_last.pt.tar.epoch_100",agg_weight=[0.0000092084, 0.000010444, 0.000017731, 0.00001641, 0.000002886]), " R = 4, MDCR"),
+            # Line(CertifiedAcc("saved_models/model_loan_Oct.26_10.26.45/model_last.pt.tar.epoch_40",agg_weight=[1.0743e-05, 1.2486e-05, 3.0092e-05, 2.8951e-05]), " R = 4, MDCR"),
+            # Line(CertifiedAcc("saved_models/model_loan_Oct.23_20.31.44/model_last.pt.tar.epoch_60",agg_weight=[0.0000042880, 0.0000052076, 0.000013619, 0.000011356]), " R = 4, MDCR"),
+            # Line(CertifiedAcc("saved_models/model_loan_Oct.23_16.41.25/model_last.pt.tar.epoch_100",agg_weight=[0.000001001, 0.0000012852, 0.000003171, 0.0000025974]), " R = 4, MDCR"),
+            # Line(CertifiedAcc("saved_models/model_loan_Oct.17_22.14.24/model_last.pt.tar.epoch_100",agg_weight=[0.0000058971, 0.0000076193, 0.000021128, 0.000014881]), " R = 4, MDCR"),
+    ])
     # # gammma
     # plot_certified_accuracy(
     #     "plots/loan/vary_gamma_tadv6_T100_cer_acc", "vary $\gamma$ ($t_{adv}=6$, T=100, R=1)", 2.5, [

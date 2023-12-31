@@ -1,7 +1,7 @@
 import argparse
 import os
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "3"
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 import json
 import datetime
@@ -92,13 +92,14 @@ if __name__ == '__main__':
 
         # update local models
         # LOAN训练
-        submit_params_update_dict, num_samples_dict, client_grads= train2.FLtrain(
+        submit_params_update_dict, num_samples_dict, client_grads= train.FLtrain(
             helper=helper,
             start_epoch=epoch,
             local_model=helper.local_model.to(config.device),
             target_model=helper.target_model.to(config.device),
             is_poison=helper.params['is_poison'],
             agent_name_keys=agent_name_keys)
+
 
 
         # break
